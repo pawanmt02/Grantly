@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { 
   mockScholarships, 
   initialProfile, 
@@ -14,20 +14,23 @@ import {
 } from './types';
 import { Navbar } from './components/Navbar';
 import { TopStatsBanner } from './components/TopStatsBanner';
-import { DiscoverView } from './components/DiscoverView';
-import { ApplicationTrackerView } from './components/ApplicationTrackerView';
-import { AiEssayCopilotView } from './components/AiEssayCopilotView';
-import { DocumentVaultView } from './components/DocumentVaultView';
-import { ComparisonView } from './components/ComparisonView';
-import { ScholarshipDetailModal } from './components/ScholarshipDetailModal';
-import { ProfileModal } from './components/ProfileModal';
-import { QuickApplyModal } from './components/QuickApplyModal';
+import { StorageService } from './services/storageService';
+import { AidCalculatorModal } from './components/common/AidCalculatorModal';
+
+// Code-split major views for high Performance index & fast initial Core Web Vitals
+const DiscoverView = lazy(() => import('./components/DiscoverView').then(m => ({ default: m.DiscoverView })));
+const ApplicationTrackerView = lazy(() => import('./components/ApplicationTrackerView').then(m => ({ default: m.ApplicationTrackerView })));
+const AiEssayCopilotView = lazy(() => import('./components/AiEssayCopilotView').then(m => ({ default: m.AiEssayCopilotView })));
+const DocumentVaultView = lazy(() => import('./components/DocumentVaultView').then(m => ({ default: m.DocumentVaultView })));
+const ComparisonView = lazy(() => import('./components/ComparisonView').then(m => ({ default: m.ComparisonView })));
+const ScholarshipDetailModal = lazy(() => import('./components/ScholarshipDetailModal').then(m => ({ default: m.ScholarshipDetailModal })));
+const ProfileModal = lazy(() => import('./components/ProfileModal').then(m => ({ default: m.ProfileModal })));
+const QuickApplyModal = lazy(() => import('./components/QuickApplyModal').then(m => ({ default: m.QuickApplyModal })));
 
 export const App: React.FC = () => {
   // Theme state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('grantly_dark_mode');
-    return saved !== null ? JSON.parse(saved) : true;
+    return StorageService.getItem('grantly_dark_mode', true);
   });
 
   useEffect(() => {
@@ -36,28 +39,24 @@ export const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('grantly_dark_mode', JSON.stringify(darkMode));
+    StorageService.setItem('grantly_dark_mode', darkMode);
   }, [darkMode]);
 
   // Main Persistent States
   const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('grantly_profile');
-    return saved ? JSON.parse(saved) : initialProfile;
+    return StorageService.getItem('grantly_profile', initialProfile);
   });
 
   const [scholarships, setScholarships] = useState<Scholarship[]>(() => {
-    const saved = localStorage.getItem('grantly_scholarships');
-    return saved ? JSON.parse(saved) : mockScholarships;
+    return StorageService.getItem('grantly_scholarships', mockScholarships);
   });
 
   const [trackedApps, setTrackedApps] = useState<Record<string, TrackedApplication>>(() => {
-    const saved = localStorage.getItem('grantly_tracked');
-    return saved ? JSON.parse(saved) : initialTrackedApplications;
+    return StorageService.getItem('grantly_tracked', initialTrackedApplications);
   });
 
   const [vaultDocs, setVaultDocs] = useState<VaultDocument[]>(() => {
-    const saved = localStorage.getItem('grantly_vault');
-    return saved ? JSON.parse(saved) : sampleVaultDocuments;
+    return StorageService.getItem('grantly_vault', sampleVaultDocuments);
   });
 
   const [compareIds, setCompareIds] = useState<string[]>(['sch-1', 'sch-2']);
@@ -67,25 +66,26 @@ export const App: React.FC = () => {
   const [selectedDetailScholarship, setSelectedDetailScholarship] = useState<Scholarship | null>(null);
   const [quickApplyScholarship, setQuickApplyScholarship] = useState<Scholarship | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
   // Cross-view seed for AI Copilot
   const [essaySeed, setEssaySeed] = useState<{ prompt?: string; title?: string }>({});
 
-  // Sync states to localStorage
+  // Sync states to StorageService
   useEffect(() => {
-    localStorage.setItem('grantly_profile', JSON.stringify(profile));
+    StorageService.setItem('grantly_profile', profile);
   }, [profile]);
 
   useEffect(() => {
-    localStorage.setItem('grantly_scholarships', JSON.stringify(scholarships));
+    StorageService.setItem('grantly_scholarships', scholarships);
   }, [scholarships]);
 
   useEffect(() => {
-    localStorage.setItem('grantly_tracked', JSON.stringify(trackedApps));
+    StorageService.setItem('grantly_tracked', trackedApps);
   }, [trackedApps]);
 
   useEffect(() => {
-    localStorage.setItem('grantly_vault', JSON.stringify(vaultDocs));
+    StorageService.setItem('grantly_vault', vaultDocs);
   }, [vaultDocs]);
 
   // Reset to default sample dataset
@@ -96,7 +96,7 @@ export const App: React.FC = () => {
       setTrackedApps(initialTrackedApplications);
       setVaultDocs(sampleVaultDocuments);
       setCompareIds(['sch-1', 'sch-2']);
-      localStorage.clear();
+      StorageService.clearGrantlyData();
     }
   };
 
@@ -132,8 +132,6 @@ export const App: React.FC = () => {
     setTrackedApps(prev => {
       const current = prev[scholarshipId];
       if (!current) {
-        // If not tracked yet, create it
-        const sch = scholarships.find(s => s.id === scholarshipId);
         return {
           ...prev,
           [scholarshipId]: {
@@ -306,6 +304,7 @@ export const App: React.FC = () => {
         trackedApps={trackedApps}
         scholarships={scholarships}
         onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenCalculator={() => setIsCalculatorOpen(true)}
         onResetData={handleResetDemoData}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
@@ -318,84 +317,92 @@ export const App: React.FC = () => {
         trackedApps={trackedApps}
         scholarships={scholarships}
         onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenCalculator={() => setIsCalculatorOpen(true)}
         onExploreUrgent={(id) => {
           const sch = scholarships.find(s => s.id === id);
           if (sch) setSelectedDetailScholarship(sch);
         }}
       />
 
-      {/* Main Tab Content */}
-      <main className="flex-1 pb-16">
-        {activeTab === 'discover' && (
-          <DiscoverView
-            scholarships={scholarships}
-            profile={profile}
-            trackedApps={trackedApps}
-            onSelectScholarship={(s) => setSelectedDetailScholarship(s)}
-            onToggleTrack={handleToggleTrack}
-            onQuickApply={(s) => setQuickApplyScholarship(s)}
-            compareList={compareIds}
-            onToggleCompare={handleToggleCompare}
-          />
-        )}
+      {/* Main Tab Content with Suspense Fallback */}
+      <main className="flex-1 pb-16" id={`panel-${activeTab}`} role="tabpanel" tabIndex={0}>
+        <Suspense fallback={
+          <div className="flex items-center justify-center p-16 text-xs text-slate-400">
+            <div className="animate-spin mr-2 h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full" />
+            <span>Loading view...</span>
+          </div>
+        }>
+          {activeTab === 'discover' && (
+            <DiscoverView
+              scholarships={scholarships}
+              profile={profile}
+              trackedApps={trackedApps}
+              onSelectScholarship={(s) => setSelectedDetailScholarship(s)}
+              onToggleTrack={handleToggleTrack}
+              onQuickApply={(s) => setQuickApplyScholarship(s)}
+              compareList={compareIds}
+              onToggleCompare={handleToggleCompare}
+            />
+          )}
 
-        {activeTab === 'tracker' && (
-          <ApplicationTrackerView
-            trackedApps={trackedApps}
-            scholarships={scholarships}
-            onUpdateStatus={handleUpdateTrackStatus}
-            onRemoveTracked={handleRemoveTracked}
-            onToggleChecklistItem={handleToggleChecklistItem}
-            onSelectScholarship={(s) => setSelectedDetailScholarship(s)}
-            onAddCustomTracked={handleAddCustomTracked}
-            profile={profile}
-          />
-        )}
+          {activeTab === 'tracker' && (
+            <ApplicationTrackerView
+              trackedApps={trackedApps}
+              scholarships={scholarships}
+              onUpdateStatus={handleUpdateTrackStatus}
+              onRemoveTracked={handleRemoveTracked}
+              onToggleChecklistItem={handleToggleChecklistItem}
+              onSelectScholarship={(s) => setSelectedDetailScholarship(s)}
+              onAddCustomTracked={handleAddCustomTracked}
+              profile={profile}
+            />
+          )}
 
-        {activeTab === 'ai-copilot' && (
-          <AiEssayCopilotView
-            scholarships={scholarships}
-            profile={profile}
-            initialPrompt={essaySeed.prompt}
-            initialTitle={essaySeed.title}
-            onSaveToVault={(doc) => {
-              const fullDoc: VaultDocument = {
-                id: `doc-${Date.now()}`,
-                title: doc.title || 'Essay Draft',
-                type: 'essay',
-                fileName: doc.fileName || 'Essay_Draft.docx',
-                lastUpdated: new Date().toISOString().split('T')[0],
-                fileSize: '48 KB',
-                wordCount: doc.wordCount,
-                status: 'ready',
-                contentSnippet: doc.contentSnippet || 'AI Essay Draft saved from Copilot.',
-              };
-              handleAddVaultDocument(fullDoc);
-            }}
-          />
-        )}
+          {activeTab === 'ai-copilot' && (
+            <AiEssayCopilotView
+              scholarships={scholarships}
+              profile={profile}
+              initialPrompt={essaySeed.prompt}
+              initialTitle={essaySeed.title}
+              onSaveToVault={(doc) => {
+                const fullDoc: VaultDocument = {
+                  id: `doc-${Date.now()}`,
+                  title: doc.title || 'Essay Draft',
+                  type: 'essay',
+                  fileName: doc.fileName || 'Essay_Draft.docx',
+                  lastUpdated: new Date().toISOString().split('T')[0],
+                  fileSize: '48 KB',
+                  wordCount: doc.wordCount,
+                  status: 'ready',
+                  contentSnippet: doc.contentSnippet || 'AI Essay Draft saved from Copilot.',
+                };
+                handleAddVaultDocument(fullDoc);
+              }}
+            />
+          )}
 
-        {activeTab === 'vault' && (
-          <DocumentVaultView
-            documents={vaultDocs}
-            onAddDocument={handleAddVaultDocument}
-            onRemoveDocument={handleRemoveVaultDocument}
-            scholarships={scholarships}
-            trackedApps={trackedApps}
-          />
-        )}
+          {activeTab === 'vault' && (
+            <DocumentVaultView
+              documents={vaultDocs}
+              onAddDocument={handleAddVaultDocument}
+              onRemoveDocument={handleRemoveVaultDocument}
+              scholarships={scholarships}
+              trackedApps={trackedApps}
+            />
+          )}
 
-        {activeTab === 'compare' && (
-          <ComparisonView
-            compareIds={compareIds}
-            scholarships={scholarships}
-            profile={profile}
-            onRemoveFromCompare={(id) => setCompareIds(prev => prev.filter(x => x !== id))}
-            onSelectScholarship={(s) => setSelectedDetailScholarship(s)}
-            onQuickApply={(s) => setQuickApplyScholarship(s)}
-            onBrowseMore={() => setActiveTab('discover')}
-          />
-        )}
+          {activeTab === 'compare' && (
+            <ComparisonView
+              compareIds={compareIds}
+              scholarships={scholarships}
+              profile={profile}
+              onRemoveFromCompare={(id) => setCompareIds(prev => prev.filter(x => x !== id))}
+              onSelectScholarship={(s) => setSelectedDetailScholarship(s)}
+              onQuickApply={(s) => setQuickApplyScholarship(s)}
+              onBrowseMore={() => setActiveTab('discover')}
+            />
+          )}
+        </Suspense>
       </main>
 
       {/* Footer */}
@@ -403,7 +410,7 @@ export const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-extrabold text-indigo-600 dark:text-indigo-400">GRANTLY</span>
-            <span>— Rethinking the Educational Financial Assistance Experience</span>
+            <span>— Rethinking Educational Financial Assistance</span>
           </div>
           <div>
             Built with modern frontend excellence • Offline-ready with persistent LocalStorage
@@ -412,38 +419,51 @@ export const App: React.FC = () => {
       </footer>
 
       {/* Modals */}
-      <ScholarshipDetailModal
-        scholarship={selectedDetailScholarship}
-        onClose={() => setSelectedDetailScholarship(null)}
-        profile={profile}
-        trackedApp={selectedDetailScholarship ? trackedApps[selectedDetailScholarship.id] : undefined}
-        onUpdateTrackStatus={handleUpdateTrackStatus}
-        onToggleTrack={handleToggleTrack}
-        onQuickApply={(s) => {
-          setSelectedDetailScholarship(null);
-          setQuickApplyScholarship(s);
-        }}
-        onStartEssayDraft={handleStartEssayDraft}
-        vaultDocs={vaultDocs}
-        isComparing={selectedDetailScholarship ? compareIds.includes(selectedDetailScholarship.id) : false}
-        onToggleCompare={handleToggleCompare}
-      />
+      <Suspense fallback={null}>
+        {selectedDetailScholarship && (
+          <ScholarshipDetailModal
+            scholarship={selectedDetailScholarship}
+            onClose={() => setSelectedDetailScholarship(null)}
+            profile={profile}
+            trackedApp={trackedApps[selectedDetailScholarship.id]}
+            onUpdateTrackStatus={handleUpdateTrackStatus}
+            onToggleTrack={handleToggleTrack}
+            onQuickApply={(s) => {
+              setSelectedDetailScholarship(null);
+              setQuickApplyScholarship(s);
+            }}
+            onStartEssayDraft={handleStartEssayDraft}
+            vaultDocs={vaultDocs}
+            isComparing={compareIds.includes(selectedDetailScholarship.id)}
+            onToggleCompare={handleToggleCompare}
+          />
+        )}
 
-      <ProfileModal
-        profile={profile}
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        onSave={(updated) => setProfile(updated)}
-      />
+        {isProfileModalOpen && (
+          <ProfileModal
+            profile={profile}
+            isOpen={isProfileModalOpen}
+            onClose={() => setIsProfileModalOpen(false)}
+            onSave={(updated) => setProfile(updated)}
+          />
+        )}
 
-      <QuickApplyModal
-        scholarship={quickApplyScholarship}
-        profile={profile}
-        vaultDocs={vaultDocs}
-        isOpen={!!quickApplyScholarship}
-        onClose={() => setQuickApplyScholarship(null)}
-        onSuccessSubmit={handleQuickApplySuccess}
-      />
+        {quickApplyScholarship && (
+          <QuickApplyModal
+            scholarship={quickApplyScholarship}
+            profile={profile}
+            vaultDocs={vaultDocs}
+            isOpen={!!quickApplyScholarship}
+            onClose={() => setQuickApplyScholarship(null)}
+            onSuccessSubmit={handleQuickApplySuccess}
+          />
+        )}
+
+        <AidCalculatorModal
+          isOpen={isCalculatorOpen}
+          onClose={() => setIsCalculatorOpen(false)}
+        />
+      </Suspense>
 
     </div>
   );

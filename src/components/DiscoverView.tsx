@@ -3,20 +3,17 @@ import {
   Search, 
   Sparkles, 
   Clock, 
-  DollarSign, 
-  CheckCircle2, 
   Bookmark, 
   BookmarkCheck, 
   ArrowRight, 
   Scale, 
   SlidersHorizontal,
   GraduationCap,
-  Layers,
-  Zap,
-  ExternalLink
+  Zap
 } from 'lucide-react';
 import { Scholarship, UserProfile, Category, TrackedApplication } from '../types';
 import { calculateMatchScore, formatDaysRemaining } from '../utils/matchingEngine';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface DiscoverViewProps {
   scholarships: Scholarship[];
@@ -46,11 +43,11 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   trackedApps,
   onSelectScholarship,
   onToggleTrack,
-  onQuickApply,
   compareList,
   onToggleCompare,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 250);
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
   const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline' | 'effort'>('match');
   const [minMatchFilter, setMinMatchFilter] = useState<number>(0);
@@ -77,9 +74,9 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   const filteredScholarships = useMemo(() => {
     return processedScholarships
       .filter((s) => {
-        // Search query
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
+        // Debounced search query
+        if (debouncedSearch.trim()) {
+          const q = debouncedSearch.toLowerCase();
           const matchesTitle = s.title.toLowerCase().includes(q);
           const matchesProvider = s.provider.toLowerCase().includes(q);
           const matchesTags = s.tags.some((t) => t.toLowerCase().includes(q));
@@ -127,18 +124,23 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         }
         return 0;
       });
-  }, [processedScholarships, searchQuery, selectedCategory, sortBy, minMatchFilter, onlyRenewable, onlyEligible]);
+  }, [processedScholarships, debouncedSearch, selectedCategory, sortBy, minMatchFilter, onlyRenewable, onlyEligible]);
 
   const topMatchCount = processedScholarships.filter((s) => s.matchResult.score >= 80).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6" role="region" aria-label="Scholarship Discovery Directory">
       
+      {/* Live Accessibility Status Announcer for Screen Readers */}
+      <div className="sr-only" aria-live="polite">
+        Showing {filteredScholarships.length} scholarships matching your search criteria.
+      </div>
+
       {/* AI Recommendation Highlight Header */}
       <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-emerald-500/10 border border-indigo-200/60 dark:border-indigo-800/60 rounded-2xl p-5 sm:p-6 backdrop-blur-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="p-3 bg-indigo-600 text-white rounded-xl shadow-md shrink-0">
-            <Sparkles className="w-6 h-6 animate-pulse" />
+            <Sparkles className="w-6 h-6 animate-pulse" aria-hidden="true" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -166,31 +168,34 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 ? 'bg-indigo-600 text-white' 
                 : 'bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700'
             }`}
+            aria-pressed={minMatchFilter === 80}
           >
-            <Zap className="w-3.5 h-3.5" />
+            <Zap className="w-3.5 h-3.5" aria-hidden="true" />
             {minMatchFilter === 80 ? 'Showing 80%+ Only (Click to Clear)' : 'Filter 80%+ Matches Only'}
           </button>
         </div>
       </div>
 
       {/* Search & Comprehensive Filters Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-4" role="search">
         
         {/* Top Search Input & Sort Row */}
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by scholarship name, provider, keyword, or major (e.g. 'Google', 'STEM', 'Design')..."
               className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              aria-label="Search scholarships"
             />
-            {searchQuery && (
+            {searchInput && (
               <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                onClick={() => setSearchInput('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 p-1"
+                aria-label="Clear search input"
               >
                 Clear
               </button>
@@ -199,13 +204,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Sort:</span>
             </div>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-3 py-2.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20"
+              aria-label="Sort scholarships by criteria"
             >
               <option value="match">Match Score (Highest)</option>
               <option value="amount">Award Amount ($$$ to $)</option>
@@ -216,12 +222,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none" role="tablist" aria-label="Filter by Category">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <button
                 key={cat}
+                role="tab"
+                aria-selected={isSelected}
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-all ${
                   isSelected
@@ -268,14 +276,14 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
       {/* Scholarship Cards Grid */}
       {filteredScholarships.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 space-y-3">
-          <GraduationCap className="w-12 h-12 text-slate-400 mx-auto" />
+          <GraduationCap className="w-12 h-12 text-slate-400 mx-auto" aria-hidden="true" />
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Matching Scholarships Found</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             Try adjusting your search keywords, lowering the match threshold, or resetting the category filter.
           </p>
           <button
             onClick={() => {
-              setSearchQuery('');
+              setSearchInput('');
               setSelectedCategory('All');
               setMinMatchFilter(0);
               setOnlyRenewable(false);
@@ -301,7 +309,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   {/* Provider & Match Pill */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-lg ${s.providerLogoBg} flex items-center justify-center text-white text-xs font-bold shadow-xs`}>
+                      <div className={`w-8 h-8 rounded-lg ${s.providerLogoBg} flex items-center justify-center text-white text-xs font-bold shadow-xs`} aria-hidden="true">
                         {s.provider.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
@@ -318,8 +326,9 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     <div 
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${s.matchResult.badgeColor}`}
                       title={`Match calculated based on GPA, major, first-gen and citizenship`}
+                      aria-label={`${matchScore}% Match Score, ${s.matchResult.verdict}`}
                     >
-                      <Sparkles className="w-3.5 h-3.5" />
+                      <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                       <span>{matchScore}% Match</span>
                     </div>
                   </div>
@@ -392,7 +401,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   
                   {/* Deadline with urgency styling */}
                   <div className="flex items-center gap-1.5 text-xs">
-                    <Clock className={`w-3.5 h-3.5 ${s.deadlineInfo.isUrgent ? 'text-rose-500 animate-pulse' : 'text-slate-400'}`} />
+                    <Clock className={`w-3.5 h-3.5 ${s.deadlineInfo.isUrgent ? 'text-rose-500 animate-pulse' : 'text-slate-400'}`} aria-hidden="true" />
                     <span className={`font-semibold ${s.deadlineInfo.isUrgent ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
                       {s.deadlineInfo.text}
                     </span>
@@ -410,8 +419,9 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                           : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700'
                       }`}
                       title={s.isComparing ? 'Remove from Compare' : 'Add to Comparison'}
+                      aria-label={s.isComparing ? `Remove ${s.title} from comparison` : `Add ${s.title} to comparison`}
                     >
-                      <Scale className="w-4 h-4" />
+                      <Scale className="w-4 h-4" aria-hidden="true" />
                     </button>
 
                     {/* Bookmark / Track Toggle */}
@@ -423,17 +433,19 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                           : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700'
                       }`}
                       title={s.isTracked ? 'Tracked in Pipeline' : 'Save to Pipeline'}
+                      aria-label={s.isTracked ? `Remove ${s.title} from tracker` : `Save ${s.title} to tracker`}
                     >
-                      {s.isTracked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                      {s.isTracked ? <BookmarkCheck className="w-4 h-4" aria-hidden="true" /> : <Bookmark className="w-4 h-4" aria-hidden="true" />}
                     </button>
 
                     {/* Quick View / Apply */}
                     <button
                       onClick={() => onSelectScholarship(s)}
                       className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                      aria-label={`Explore details for ${s.title}`}
                     >
                       <span>Explore</span>
-                      <ArrowRight className="w-3 h-3" />
+                      <ArrowRight className="w-3 h-3" aria-hidden="true" />
                     </button>
                   </div>
                 </div>

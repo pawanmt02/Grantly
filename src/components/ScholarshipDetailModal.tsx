@@ -1,25 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   X, 
   Sparkles, 
   CheckCircle2, 
-  XCircle, 
-  Clock, 
-  DollarSign, 
   FileText, 
-  GraduationCap, 
   Send, 
   ExternalLink, 
   Bookmark, 
-  BookmarkCheck, 
   Scale, 
-  Lightbulb, 
   ShieldCheck,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { Scholarship, UserProfile, TrackedApplication, VaultDocument, ApplicationStatus } from '../types';
 import { calculateMatchScore, formatDaysRemaining } from '../utils/matchingEngine';
+import { useSpeechNarrator } from '../hooks/useSpeechNarrator';
 
 interface ScholarshipDetailModalProps {
   scholarship: Scholarship | null;
@@ -48,6 +45,22 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
   isComparing,
   onToggleCompare,
 }) => {
+  const { speak, stop, isSpeaking, isSupported } = useSpeechNarrator();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        stop();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      stop();
+    };
+  }, [onClose, stop]);
+
   if (!scholarship) return null;
 
   const matchResult = calculateMatchScore(scholarship, profile);
@@ -56,14 +69,27 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
 
   // Audit readiness against vault
   const hasTranscript = vaultDocs.some(d => d.type === 'transcript');
-  const hasResume = vaultDocs.some(d => d.type === 'resume');
   const hasEssay = vaultDocs.some(d => d.type === 'essay');
   const hasLOR = vaultDocs.some(d => d.type === 'lor');
   const hasFinancial = vaultDocs.some(d => d.type === 'financial');
-  const hasPortfolio = vaultDocs.some(d => d.type === 'portfolio');
+
+  const handleReadAloud = () => {
+    if (isSpeaking) {
+      stop();
+    } else {
+      const narrativeText = `${scholarship.title} offered by ${scholarship.provider}. Award amount is ${scholarship.formattedAmount}. Your calculated match score is ${matchResult.score} percent, ${matchResult.verdict}. Application deadline is ${scholarship.deadline}, which is ${deadlineInfo.text}. About this opportunity: ${scholarship.description}.`;
+      speak(narrativeText);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scholarship-title"
+      onClick={() => { stop(); onClose(); }}
+    >
       <div 
         className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
@@ -71,21 +97,37 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
         {/* Modal Top Header */}
         <div className="relative p-6 sm:p-8 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shrink-0">
           
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            aria-label="Close details"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Top action controls: TTS & Close */}
+          <div className="absolute top-5 right-5 flex items-center gap-2">
+            {isSupported && (
+              <button
+                onClick={handleReadAloud}
+                className={`p-2 rounded-full transition-colors flex items-center gap-1.5 text-xs font-semibold ${
+                  isSpeaking ? 'bg-amber-500 text-white animate-pulse' : 'bg-white/10 hover:bg-white/20 text-white'
+                }`}
+                aria-label={isSpeaking ? 'Stop Audio Read Aloud' : 'Read Aloud with Accessibility Screen Narrator'}
+                title={isSpeaking ? 'Stop narration' : 'Listen to scholarship details (Audio Narrator)'}
+              >
+                {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                <span className="hidden sm:inline">{isSpeaking ? 'Stop Audio' : 'Listen'}</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => { stop(); onClose(); }}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              aria-label="Close dialog"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             
             {/* Provider and Title */}
             <div className="space-y-1.5 max-w-xl">
               <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${scholarship.providerLogoBg}`} />
+                <span className={`w-3 h-3 rounded-full ${scholarship.providerLogoBg}`} aria-hidden="true" />
                 <span className="text-xs font-semibold tracking-wider uppercase text-indigo-300">
                   {scholarship.provider} • {scholarship.location}
                 </span>
@@ -93,7 +135,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
                   {scholarship.category}
                 </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h2 id="scholarship-title" className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 {scholarship.title}
               </h2>
             </div>
@@ -104,7 +146,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
                 {scholarship.formattedAmount}
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white border border-white/20">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
                 <span>{matchResult.score}% Match ({matchResult.verdict})</span>
               </div>
             </div>
@@ -116,7 +158,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
             <div>
               <span className="text-slate-400 block text-[11px]">Application Deadline</span>
               <span className="font-semibold text-white flex items-center gap-1 mt-0.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                <Calendar className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />
                 {scholarship.deadline} ({deadlineInfo.text})
               </span>
             </div>
@@ -144,7 +186,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
           <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                   Transparent Match Breakdown
                 </h3>
@@ -165,9 +207,9 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
                   }`}
                 >
                   {item.matched ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
                   ) : (
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
                   )}
                   <div className="flex-1">
                     <div className="flex items-center justify-between font-semibold">
@@ -197,7 +239,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
                 Document Vault Readiness Check
               </h3>
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -254,7 +296,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
           {scholarship.essayPrompts.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-600" />
+                <FileText className="w-4 h-4 text-indigo-600" aria-hidden="true" />
                 Required Essay Prompts
               </h3>
 
@@ -274,10 +316,10 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
                     </div>
 
                     <button
-                      onClick={() => onStartEssayDraft(prompt, scholarship.title)}
+                      onClick={() => { stop(); onStartEssayDraft(prompt, scholarship.title); }}
                       className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-colors shadow-xs"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
                       Brainstorm with AI
                     </button>
                   </div>
@@ -295,7 +337,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
               rel="noopener noreferrer"
               className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1"
             >
-              Visit Official Application Portal <ExternalLink className="w-3.5 h-3.5" />
+              Visit Official Application Portal <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
             </a>
           </div>
 
@@ -314,7 +356,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Scale className="w-4 h-4" />
+              <Scale className="w-4 h-4" aria-hidden="true" />
               <span>{isComparing ? 'In Compare Matrix' : 'Compare'}</span>
             </button>
 
@@ -340,7 +382,7 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
                 onClick={() => onToggleTrack(scholarship)}
                 className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
-                <Bookmark className="w-4 h-4 text-indigo-600" />
+                <Bookmark className="w-4 h-4 text-indigo-600" aria-hidden="true" />
                 <span>Save to Pipeline</span>
               </button>
             )}
@@ -348,17 +390,17 @@ export const ScholarshipDetailModal: React.FC<ScholarshipDetailModalProps> = ({
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
-              onClick={onClose}
+              onClick={() => { stop(); onClose(); }}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors"
             >
               Back to Discover
             </button>
 
             <button
-              onClick={() => onQuickApply(scholarship)}
+              onClick={() => { stop(); onQuickApply(scholarship); }}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-indigo-500/20 active:scale-95"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
               <span>Streamlined One-Click Apply</span>
             </button>
           </div>

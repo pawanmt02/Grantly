@@ -2,23 +2,17 @@ import React, { useState } from 'react';
 import { 
   Kanban, 
   Plus, 
-  CheckCircle2, 
-  Clock, 
-  Calendar, 
   ArrowRight, 
   ArrowLeft, 
   Trash2, 
   Download, 
-  Trophy, 
-  AlertCircle,
-  FileText,
-  ChevronDown,
+  ChevronDown, 
   ChevronUp,
-  Sparkles,
-  ExternalLink
+  FileSpreadsheet
 } from 'lucide-react';
 import { TrackedApplication, Scholarship, ApplicationStatus, UserProfile } from '../types';
 import { formatDaysRemaining } from '../utils/matchingEngine';
+import { ExportService } from '../services/exportService';
 
 interface ApplicationTrackerViewProps {
   trackedApps: Record<string, TrackedApplication>;
@@ -97,6 +91,10 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
     setShowAddModal(false);
   };
 
+  const handleDownloadCsv = () => {
+    ExportService.exportApplicationsToCsv(trackedApps, scholarships, profile);
+  };
+
   const statusFlow: ApplicationStatus[] = ['considering', 'preparing', 'submitted', 'interview', 'awarded'];
 
   const moveStatus = (scholarshipId: string, current: ApplicationStatus, direction: 'forward' | 'backward') => {
@@ -109,14 +107,14 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6" role="region" aria-label="Scholarship Application Tracker">
       
       {/* Tracker Header & Quick Stats */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400">
-              <Kanban className="w-5 h-5" />
+              <Kanban className="w-5 h-5" aria-hidden="true" />
             </span>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
               Unified Scholarship Pipeline
@@ -128,20 +126,33 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
         </div>
 
         {/* Action Buttons: Add Custom & Export */}
-        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          
+          <button
+            onClick={handleDownloadCsv}
+            className="px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            title="Download CSV for Excel / Google Sheets"
+            aria-label="Export Aid Portfolio as CSV Spreadsheet"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             onClick={() => setShowReportModal(true)}
             className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            aria-label="View Printable Aid Portfolio Report"
           >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>Export Aid Report</span>
+            <Download className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            <span>Print Report</span>
           </button>
 
           <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+            aria-label="Add custom or offline scholarship opportunity"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             <span>Add Custom Scholarship</span>
           </button>
         </div>
@@ -167,7 +178,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-3 w-full bg-slate-800 rounded-full h-2.5 overflow-hidden flex">
+        <div className="mt-3 w-full bg-slate-800 rounded-full h-2.5 overflow-hidden flex" role="progressbar" aria-valuenow={Math.round((totalWon / (profile.targetFunding || 1)) * 100)} aria-valuemin={0} aria-valuemax={100}>
           <div 
             className="bg-emerald-500 h-full transition-all duration-500" 
             style={{ width: `${Math.min((totalWon / (profile.targetFunding || 1)) * 100, 100)}%` }}
@@ -312,8 +323,9 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                             disabled={tracked.status === 'considering'}
                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-20 transition-opacity"
                             title="Move back a stage"
+                            aria-label="Move application back one stage"
                           >
-                            <ArrowLeft className="w-3.5 h-3.5" />
+                            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
 
                           {/* Expand Checklist */}
@@ -332,8 +344,9 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                             onClick={() => onRemoveTracked(tracked.scholarshipId)}
                             className="p-1 rounded hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                             title="Remove from Tracker"
+                            aria-label="Remove opportunity from pipeline"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
 
                           {/* Forward Arrow */}
@@ -342,8 +355,9 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                             disabled={tracked.status === 'awarded'}
                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-20 transition-opacity"
                             title="Advance to next stage"
+                            aria-label="Advance application to next stage"
                           >
-                            <ArrowRight className="w-3.5 h-3.5" />
+                            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
 
                         </div>
@@ -360,7 +374,12 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
 
       {/* Add Custom Scholarship Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add Custom Scholarship"
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full shadow-2xl space-y-4">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
               Add Offline or Custom Scholarship
@@ -451,7 +470,12 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
 
       {/* Printable Report Modal */}
       {showReportModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Financial Aid Portfolio Summary"
+        >
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>

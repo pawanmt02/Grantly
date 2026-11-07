@@ -6,7 +6,8 @@ import {
   Sparkles, 
   ArrowUpRight,
   ShieldCheck,
-  GraduationCap
+  GraduationCap,
+  Calculator
 } from 'lucide-react';
 import { UserProfile, TrackedApplication, Scholarship } from '../types';
 import { formatDaysRemaining } from '../utils/matchingEngine';
@@ -16,6 +17,7 @@ interface TopStatsBannerProps {
   trackedApps: Record<string, TrackedApplication>;
   scholarships: Scholarship[];
   onOpenProfile: () => void;
+  onOpenCalculator: () => void;
   onExploreUrgent: (scholarshipId: string) => void;
 }
 
@@ -24,6 +26,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
   trackedApps,
   scholarships,
   onOpenProfile,
+  onOpenCalculator,
   onExploreUrgent,
 }) => {
   const trackedList = Object.values(trackedApps);
@@ -54,7 +57,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
     .sort((a, b) => a.deadlineInfo.days - b.deadlineInfo.days)[0];
 
   return (
-    <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-950 shadow-inner">
+    <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-950 shadow-inner" role="region" aria-label="Student Aid Status Overview">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         
         {/* Top welcome + profile overview bar */}
@@ -62,7 +65,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
                 Adaptive Discovery Engine Active
               </span>
               <span className="text-xs text-indigo-300 hidden sm:inline">
@@ -74,10 +77,10 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
             </h1>
           </div>
 
-          {/* Profile Match Indicators */}
+          {/* Profile Match Indicators & Fast Tools */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 flex items-center gap-1.5">
-              <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+              <GraduationCap className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />
               {profile.educationLevel}
             </span>
             <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300">
@@ -91,11 +94,23 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
                 First-Gen Scholar
               </span>
             )}
+            
+            <button
+              onClick={onOpenCalculator}
+              className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 border border-indigo-400/40 text-indigo-200 font-medium transition-colors flex items-center gap-1 shadow-sm"
+              title="Estimate Student Aid Index (SAI) & Pell Grant"
+              aria-label="Calculate Student Aid Index and federal aid gap"
+            >
+              <Calculator className="w-3 h-3 text-indigo-400" aria-hidden="true" />
+              <span>Federal Aid Gap</span>
+            </button>
+
             <button
               onClick={onOpenProfile}
               className="px-3 py-1 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors flex items-center gap-1 shadow-sm"
+              aria-label="Open student profile adjustments"
             >
-              Adjust Profile <ArrowUpRight className="w-3 h-3" />
+              Adjust Profile <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -107,7 +122,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
           <div className="bg-slate-900/70 backdrop-blur-xs rounded-xl p-3.5 border border-slate-800 hover:border-slate-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span>Financial Aid Target</span>
-              <Trophy className="w-4 h-4 text-amber-400" />
+              <Trophy className="w-4 h-4 text-amber-400" aria-hidden="true" />
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-white">
               ${profile.targetFunding.toLocaleString()}
@@ -128,7 +143,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
           <div className="bg-slate-900/70 backdrop-blur-xs rounded-xl p-3.5 border border-slate-800 hover:border-slate-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span>Potential in Pipeline</span>
-              <Send className="w-4 h-4 text-indigo-400" />
+              <Send className="w-4 h-4 text-indigo-400" aria-hidden="true" />
             </div>
             <div className="text-lg sm:text-2xl font-extrabold text-indigo-300">
               ${totalInPipeline.toLocaleString()}
@@ -142,7 +157,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
           <div className="bg-slate-900/70 backdrop-blur-xs rounded-xl p-3.5 border border-slate-800 hover:border-slate-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span>Next Approaching Deadline</span>
-              <Clock className="w-4 h-4 text-rose-400" />
+              <Clock className="w-4 h-4 text-rose-400" aria-hidden="true" />
             </div>
             {urgentScholarship ? (
               <div>
@@ -156,6 +171,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
                   <button
                     onClick={() => onExploreUrgent(urgentScholarship.scholarship.id)}
                     className="text-xs text-indigo-400 hover:text-indigo-300 underline font-medium"
+                    aria-label={`View details for ${urgentScholarship.scholarship.title}`}
                   >
                     View
                   </button>
@@ -170,7 +186,7 @@ export const TopStatsBanner: React.FC<TopStatsBannerProps> = ({
           <div className="bg-slate-900/70 backdrop-blur-xs rounded-xl p-3.5 border border-slate-800 hover:border-slate-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span>Vault Readiness</span>
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <ShieldCheck className="w-4 h-4 text-emerald-400" aria-hidden="true" />
             </div>
             <div className="flex items-baseline gap-2">
               <div className="text-lg sm:text-2xl font-extrabold text-emerald-400">
